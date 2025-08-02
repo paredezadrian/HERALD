@@ -42,11 +42,11 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
   - [x] Create mixture-of-experts gating foundation
   - [x] Implement memory optimization (bf16, memory mapping)
   
-- [ ] **Transformer Layers** (`layers/fast_transformer.py` - ~1,567 lines)
-  - [ ] Implement 12-layer transformer architecture
-  - [ ] Add multi-head attention (768 hidden dimensions)
-  - [ ] Implement CPU optimization with Intel AVX-512
-  - [ ] Add int8 quantization support
+- [x] **Transformer Layers** (`layers/fast_transformer.py` - ~1,567 lines)
+  - [x] Implement 12-layer transformer architecture
+  - [x] Add multi-head attention (768 hidden dimensions)
+  - [x] Implement CPU optimization with Intel AVX-512
+  - [x] Add int8 quantization support
 
 ### Week 7-8: Mamba Integration & Testing
 - [ ] **Mamba State Space Layers** (`layers/mamba_layer.py` - ~2,123 lines)
