@@ -60,10 +60,10 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
   - [x] Add intra-chunk and inter-chunk attention
   - [x] Create attention weight preservation
 
-- [ ] **Integration Testing**
-  - [ ] Test tokenizer → memory → engine pipeline
-  - [ ] Validate performance targets on test hardware
-  - [ ] Memory usage validation (target: <11.8GB)
+- [x] **Integration Testing**
+  - [x] Test tokenizer → memory → engine pipeline
+  - [x] Validate performance targets on test hardware
+  - [x] Memory usage validation (target: <11.8GB)
 
 ## Phase 2: Reasoning Modules (Weeks 9-12)
 
