@@ -140,11 +140,16 @@ class Formula:
         return variables
 
 
-@dataclass
+@dataclass(frozen=True)
 class Predicate:
     """Represents a first-order logic predicate."""
     name: str
-    arguments: List[str] = field(default_factory=list)
+    arguments: Tuple[str, ...] = field(default_factory=tuple)
+    
+    def __post_init__(self):
+        # Convert list arguments to tuple if needed
+        if isinstance(self.arguments, list):
+            object.__setattr__(self, 'arguments', tuple(self.arguments))
     
     def __str__(self) -> str:
         if not self.arguments:
@@ -163,7 +168,7 @@ class QuantifiedFormula:
         return f"{self.quantifier.value}{self.variable}({self.formula})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class AtomicFormula:
     """Represents an atomic first-order logic formula."""
     predicate: Predicate
@@ -314,9 +319,20 @@ class BooleanSatisfiabilitySolver:
         # Remove tautological clauses
         self.formula.clauses = [c for c in self.formula.clauses if not c.is_tautology()]
         
-        # Unit propagation
-        while not self._unit_propagate():
-            pass
+        # Unit propagation - continue until no more unit clauses can be processed
+        while True:
+            # Count unit clauses before propagation
+            unit_clauses_before = len([c for c in self.formula.clauses if c.is_unit()])
+            
+            if not self._unit_propagate():
+                return False  # Conflict detected
+            
+            # Count unit clauses after propagation
+            unit_clauses_after = len([c for c in self.formula.clauses if c.is_unit()])
+            
+            # If no new unit clauses were created, we're done
+            if unit_clauses_after <= unit_clauses_before:
+                break
         
         # Pure literal elimination
         self._eliminate_pure_literals()
@@ -328,8 +344,10 @@ class BooleanSatisfiabilitySolver:
         if not self.formula:
             return True
         
+        # Find all unit clauses
         unit_clauses = [c for c in self.formula.clauses if c.is_unit()]
         
+        # Process unit clauses
         for clause in unit_clauses:
             literal = next(iter(clause.literals))
             if not self._assign_literal(literal):
@@ -371,15 +389,22 @@ class BooleanSatisfiabilitySolver:
             
             # Find new literal to watch
             new_watch = None
+            unassigned_count = 0
             for lit in clause.literals:
-                if lit != assigned_literal and lit.variable not in self.assignment:
-                    new_watch = lit
-                    break
+                if lit.variable not in self.assignment:
+                    unassigned_count += 1
+                    if new_watch is None:
+                        new_watch = lit
             
-            if new_watch:
+            if new_watch and unassigned_count > 1:
+                # More than one unassigned literal - watch the new one
                 self.watch_lists[new_watch].add(clause)
+            elif unassigned_count == 1:
+                # Only one unassigned literal - clause becomes unit
+                # The unit propagation will handle this
+                pass
             else:
-                # No new literal to watch - clause is satisfied or unit
+                # All literals assigned - clause is satisfied
                 pass
     
     def _eliminate_pure_literals(self) -> None:
@@ -661,11 +686,14 @@ class RuleChainInference:
                     
                     # Try to apply each rule
                     for rule in self.rules:
-                        if self._can_apply_rule(rule):
-                            conclusion = rule.conclusion
-                            if conclusion not in self.facts and conclusion not in derived_facts:
-                                new_facts.add(conclusion)
-                                derived_facts.append(conclusion)
+                        # Find a substitution that makes the rule applicable
+                        substitution = self._find_rule_substitution(rule)
+                        if substitution:
+                            # Apply substitution to conclusion
+                            substituted_conclusion = self._apply_substitution(rule.conclusion, substitution)
+                            if substituted_conclusion not in self.facts and substituted_conclusion not in derived_facts:
+                                new_facts.add(substituted_conclusion)
+                                derived_facts.append(substituted_conclusion)
                     
                     # Add new facts to knowledge base
                     self.facts.update(new_facts)
@@ -742,12 +770,60 @@ class RuleChainInference:
         
         return False
     
+    def _find_rule_substitution(self, rule: Rule) -> Optional[Dict[str, str]]:
+        """Find a substitution that makes all premises of a rule match facts."""
+        # Try to find a substitution that makes all premises match facts
+        for fact in self.facts:
+            substitution = self._find_substitution(rule.premises[0], fact)
+            if substitution:
+                # Check if all other premises match with this substitution
+                all_match = True
+                for premise in rule.premises[1:]:
+                    substituted_premise = self._apply_substitution(premise, substitution)
+                    if substituted_premise not in self.facts:
+                        all_match = False
+                        break
+                if all_match:
+                    return substitution
+        return None
+    
     def _can_apply_rule(self, rule: Rule) -> bool:
-        """Check if a rule can be applied (all premises are facts)."""
-        for premise in rule.premises:
-            if premise not in self.facts:
-                return False
-        return True
+        """Check if a rule can be applied (all premises match facts with variable substitution)."""
+        return self._find_rule_substitution(rule) is not None
+    
+    def _find_substitution(self, pattern: AtomicFormula, fact: AtomicFormula) -> Optional[Dict[str, str]]:
+        """Find a variable substitution that makes pattern match fact."""
+        if pattern.predicate.name != fact.predicate.name or pattern.negated != fact.negated:
+            return None
+        
+        if len(pattern.predicate.arguments) != len(fact.predicate.arguments):
+            return None
+        
+        substitution = {}
+        for pattern_arg, fact_arg in zip(pattern.predicate.arguments, fact.predicate.arguments):
+            if pattern_arg.startswith('x'):  # Variable
+                if pattern_arg in substitution:
+                    if substitution[pattern_arg] != fact_arg:
+                        return None  # Inconsistent substitution
+                else:
+                    substitution[pattern_arg] = fact_arg
+            else:
+                if pattern_arg != fact_arg:
+                    return None  # Constants don't match
+        
+        return substitution
+    
+    def _apply_substitution(self, formula: AtomicFormula, substitution: Dict[str, str]) -> AtomicFormula:
+        """Apply variable substitution to a formula."""
+        new_args = []
+        for arg in formula.predicate.arguments:
+            if arg in substitution:
+                new_args.append(substitution[arg])
+            else:
+                new_args.append(arg)
+        
+        new_predicate = Predicate(formula.predicate.name, new_args)
+        return AtomicFormula(new_predicate, formula.negated)
     
     def _rule_concludes(self, rule: Rule, goal: Union[AtomicFormula, QuantifiedFormula]) -> bool:
         """Check if a rule concludes the given goal."""

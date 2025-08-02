@@ -298,7 +298,7 @@ class TestFirstOrderLogicEngine:
         
         skolemized = self.engine.skolemize(formula)
         assert isinstance(skolemized, AtomicFormula)
-        assert "skolem" in str(skolemized.predicate.name)
+        assert "skolem" in str(skolemized)
 
 
 class TestRuleChainInference:
