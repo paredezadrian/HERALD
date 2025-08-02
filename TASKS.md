@@ -11,11 +11,11 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
 ## Phase 1: Core Implementation (Weeks 1-8)
 
 ### Week 1-2: Project Setup & ASC Tokenizer
-- [ ] **Project Infrastructure**
-  - [ ] Create directory structure as outlined in README.md
-  - [ ] Set up `requirements.txt` with core dependencies
-  - [ ] Initialize git repository and `.gitignore`
-  - [ ] Create basic configuration files (`config/`)
+- [x] **Project Infrastructure**
+  - [x] Create directory structure as outlined in README.md
+  - [x] Set up `requirements.txt` with core dependencies
+  - [x] Initialize git repository and `.gitignore`
+  - [x] Create basic configuration files (`config/`)
   
 - [ ] **ASC Tokenizer Development** (`core/tokenizer.py` - ~2,847 lines)
   - [ ] Implement Tier 1: Byte-level processing with UTF-8 analysis
