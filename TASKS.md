@@ -17,13 +17,13 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
   - [x] Initialize git repository and `.gitignore`
   - [x] Create basic configuration files (`config/`)
   
-- [ ] **ASC Tokenizer Development** (`core/tokenizer.py` - ~2,847 lines)
-  - [ ] Implement Tier 1: Byte-level processing with UTF-8 analysis
-  - [ ] Implement Tier 2: Symbolic tokenization for math/code
-  - [ ] Implement Tier 3: Wordpiece integration
-  - [ ] Add dynamic vocabulary construction
-  - [ ] Implement compression ratios (target: 3.2:1)
-  - [ ] Create tokenizer unit tests
+- [x] **ASC Tokenizer Development** (`core/tokenizer.py` - ~2,847 lines)
+  - [x] Implement Tier 1: Byte-level processing with UTF-8 analysis
+  - [x] Implement Tier 2: Symbolic tokenization for math/code
+  - [x] Implement Tier 3: Wordpiece integration
+  - [x] Add dynamic vocabulary construction
+  - [x] Implement compression ratios (target: 3.2:1)
+  - [x] Create tokenizer unit tests
 
 ### Week 3-4: Context Memory Manager
 - [ ] **Multi-Tier Memory Architecture** (`core/memory.py` - ~1,923 lines)
