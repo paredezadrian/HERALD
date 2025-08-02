@@ -22,6 +22,9 @@ import threading
 from collections import defaultdict
 import math
 import os
+import pickle
+import hashlib
+from pathlib import Path
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -65,6 +68,12 @@ class AttentionConfig:
     use_fused_operations: bool = True
     use_parallel_attention: bool = True
     use_attention_compression: bool = True
+    
+    # Attention weight preservation
+    preserve_attention_weights: bool = True
+    attention_weight_threshold: float = 0.01
+    max_preserved_weights: int = 10000
+    weight_preservation_dir: str = "./attention_weights"
 
 
 @dataclass
@@ -81,6 +90,218 @@ class AttentionCache:
         self.inter_chunk_cache.clear()
         self.attention_weights_cache.clear()
         self.chunk_cache.clear()
+
+
+class AttentionWeightPreservation:
+    """Manages attention weight preservation for long-term memory."""
+    
+    def __init__(self, config: AttentionConfig):
+        self.config = config
+        self.preservation_dir = Path(config.weight_preservation_dir)
+        self.preservation_dir.mkdir(exist_ok=True)
+        
+        # Weight storage
+        self.preserved_weights: Dict[str, np.ndarray] = {}
+        self.weight_metadata: Dict[str, Dict[str, Any]] = {}
+        
+        # Performance tracking
+        self.preservation_times = []
+        self.retrieval_times = []
+        
+        # Load existing preserved weights
+        self._load_preserved_weights()
+    
+    def _load_preserved_weights(self):
+        """Load existing preserved weights from disk."""
+        try:
+            for weight_file in self.preservation_dir.glob("*.pkl"):
+                weight_id = weight_file.stem
+                weights = self._load_weights_from_disk(weight_id)
+                if weights is not None:
+                    self.preserved_weights[weight_id] = weights
+                    # Load metadata if available
+                    try:
+                        with open(weight_file, 'rb') as f:
+                            data = pickle.load(f)
+                            if 'metadata' in data:
+                                self.weight_metadata[weight_id] = data['metadata']
+                    except Exception:
+                        # Create basic metadata if loading fails
+                        self.weight_metadata[weight_id] = {
+                            'context_id': 'unknown',
+                            'shape': weights.shape,
+                            'timestamp': time.time(),
+                            'mean_weight': float(np.mean(weights)),
+                            'max_weight': float(np.max(weights)),
+                            'min_weight': float(np.min(weights)),
+                            'metadata': {}
+                        }
+        except Exception as e:
+            logger.warning(f"Failed to load preserved weights: {e}")
+    
+    def preserve_attention_weights(self, 
+                                 attention_weights: np.ndarray,
+                                 context_id: str,
+                                 metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """Preserve attention weights for future use."""
+        start_time = time.time()
+        
+        # Check if weights are significant enough to preserve
+        if not self._should_preserve_weights(attention_weights):
+            return False
+        
+        # Create unique identifier
+        weight_id = self._create_weight_id(attention_weights, context_id)
+        
+        # Store weights with metadata
+        self.preserved_weights[weight_id] = attention_weights.copy()
+        
+        # Store metadata
+        self.weight_metadata[weight_id] = {
+            'context_id': context_id,
+            'shape': attention_weights.shape,
+            'timestamp': time.time(),
+            'mean_weight': np.mean(attention_weights),
+            'max_weight': np.max(attention_weights),
+            'min_weight': np.min(attention_weights),
+            'metadata': metadata or {}
+        }
+        
+        # Save to disk if configured
+        if self.config.preserve_attention_weights:
+            self._save_weights_to_disk(weight_id, attention_weights, self.weight_metadata[weight_id])
+        
+        # Track performance
+        end_time = time.time()
+        self.preservation_times.append(end_time - start_time)
+        
+        logger.info(f"Preserved attention weights for context {context_id}")
+        return True
+    
+    def retrieve_attention_weights(self, 
+                                 context_id: str,
+                                 similarity_threshold: float = 0.8) -> Optional[np.ndarray]:
+        """Retrieve preserved attention weights based on context similarity."""
+        start_time = time.time()
+        
+        # Find similar contexts
+        similar_weights = []
+        for weight_id, metadata in self.weight_metadata.items():
+            if metadata['context_id'] == context_id:
+                # Exact match
+                similar_weights.append((weight_id, 1.0))
+            elif self._calculate_context_similarity(context_id, metadata['context_id']) > similarity_threshold:
+                # Similar context
+                similarity = self._calculate_context_similarity(context_id, metadata['context_id'])
+                similar_weights.append((weight_id, similarity))
+        
+        if not similar_weights:
+            return None
+        
+        # Sort by similarity and return best match
+        similar_weights.sort(key=lambda x: x[1], reverse=True)
+        best_weight_id = similar_weights[0][0]
+        
+        # Load from memory or disk
+        if best_weight_id in self.preserved_weights:
+            weights = self.preserved_weights[best_weight_id]
+        else:
+            weights = self._load_weights_from_disk(best_weight_id)
+            if weights is not None:
+                self.preserved_weights[best_weight_id] = weights
+        
+        # Track performance
+        end_time = time.time()
+        self.retrieval_times.append(end_time - start_time)
+        
+        return weights
+    
+    def _should_preserve_weights(self, attention_weights: np.ndarray) -> bool:
+        """Determine if attention weights should be preserved."""
+        # Check if weights exceed threshold
+        max_weight = np.max(attention_weights)
+        if max_weight < self.config.attention_weight_threshold:
+            return False
+        
+        # Check if we have space for more weights
+        if len(self.preserved_weights) >= self.config.max_preserved_weights:
+            # Remove least recently used weights
+            self._cleanup_old_weights()
+        
+        return True
+    
+    def _create_weight_id(self, attention_weights: np.ndarray, context_id: str) -> str:
+        """Create unique identifier for attention weights."""
+        # Create hash from weights and context
+        weight_hash = hashlib.md5(attention_weights.tobytes()).hexdigest()
+        context_hash = hashlib.md5(context_id.encode()).hexdigest()
+        return f"{weight_hash}_{context_hash}"
+    
+    def _calculate_context_similarity(self, context1: str, context2: str) -> float:
+        """Calculate similarity between two contexts."""
+        # Simple Jaccard similarity for now
+        words1 = set(context1.lower().split())
+        words2 = set(context2.lower().split())
+        
+        if not words1 or not words2:
+            return 0.0
+        
+        intersection = len(words1.intersection(words2))
+        union = len(words1.union(words2))
+        
+        return intersection / union if union > 0 else 0.0
+    
+    def _save_weights_to_disk(self, weight_id: str, weights: np.ndarray, metadata: Dict[str, Any]):
+        """Save attention weights to disk."""
+        try:
+            weight_file = self.preservation_dir / f"{weight_id}.pkl"
+            with open(weight_file, 'wb') as f:
+                pickle.dump({
+                    'weights': weights,
+                    'metadata': metadata
+                }, f)
+        except Exception as e:
+            logger.warning(f"Failed to save attention weights to disk: {e}")
+    
+    def _load_weights_from_disk(self, weight_id: str) -> Optional[np.ndarray]:
+        """Load attention weights from disk."""
+        try:
+            weight_file = self.preservation_dir / f"{weight_id}.pkl"
+            if weight_file.exists():
+                with open(weight_file, 'rb') as f:
+                    data = pickle.load(f)
+                    return data['weights']
+        except Exception as e:
+            logger.warning(f"Failed to load attention weights from disk: {e}")
+        
+        return None
+    
+    def _cleanup_old_weights(self):
+        """Remove least recently used weights."""
+        if len(self.preserved_weights) <= self.config.max_preserved_weights:
+            return
+        
+        # Sort by timestamp
+        sorted_weights = sorted(
+            self.weight_metadata.items(),
+            key=lambda x: x[1]['timestamp']
+        )
+        
+        # Remove oldest weights
+        num_to_remove = len(self.preserved_weights) - self.config.max_preserved_weights
+        for weight_id, _ in sorted_weights[:num_to_remove]:
+            del self.preserved_weights[weight_id]
+            del self.weight_metadata[weight_id]
+    
+    def get_preservation_stats(self) -> Dict[str, Any]:
+        """Get attention weight preservation statistics."""
+        return {
+            'total_preserved_weights': len(self.preserved_weights),
+            'avg_preservation_time': np.mean(self.preservation_times) if self.preservation_times else 0,
+            'avg_retrieval_time': np.mean(self.retrieval_times) if self.retrieval_times else 0,
+            'preservation_dir': str(self.preservation_dir),
+            'max_preserved_weights': self.config.max_preserved_weights
+        }
 
 
 class ChunkProcessor:
@@ -192,6 +413,9 @@ class IntraChunkAttention:
         
         # Performance tracking
         self.intra_times = []
+        
+        # Attention weight preservation
+        self.weight_preservation = AttentionWeightPreservation(config)
     
     def _init_attention_weights(self):
         """Initialize intra-chunk attention weights."""
@@ -243,6 +467,12 @@ class IntraChunkAttention:
         
         # Apply softmax
         attention_weights = self._apply_softmax(attention_scores)
+        
+        # Preserve attention weights if configured
+        if self.config.preserve_attention_weights:
+            self.weight_preservation.preserve_attention_weights(
+                attention_weights, context_id
+            )
         
         # Apply dropout
         if self.attention_dropout > 0 and self.training:
@@ -333,7 +563,8 @@ class IntraChunkAttention:
             'avg_intra_time': np.mean(self.intra_times) if self.intra_times else 0,
             'total_intra_calls': len(self.intra_times),
             'hidden_dim': self.hidden_dim,
-            'num_heads': self.num_heads
+            'num_heads': self.num_heads,
+            'weight_preservation_stats': self.weight_preservation.get_preservation_stats()
         }
 
 
@@ -355,6 +586,9 @@ class InterChunkAttention:
         
         # Training mode
         self.training = True
+        
+        # Attention weight preservation
+        self.weight_preservation = AttentionWeightPreservation(config)
     
     def _init_attention_weights(self):
         """Initialize inter-chunk attention weights."""
@@ -394,7 +628,7 @@ class InterChunkAttention:
         chunk_reprs = self._create_chunk_representations(chunks)
         
         # Apply attention between chunk representations
-        attended_reprs = self._apply_chunk_attention(chunk_reprs, attention_mask)
+        attended_reprs = self._apply_chunk_attention(chunk_reprs, attention_mask, context_id)
         
         # Distribute attention information back to chunks
         updated_chunks = self._distribute_attention_to_chunks(chunks, attended_reprs)
@@ -426,7 +660,8 @@ class InterChunkAttention:
     
     def _apply_chunk_attention(self, 
                               chunk_reprs: np.ndarray, 
-                              attention_mask: Optional[np.ndarray] = None) -> np.ndarray:
+                              attention_mask: Optional[np.ndarray] = None,
+                              context_id: str = "") -> np.ndarray:
         """Apply attention between chunk representations."""
         batch_size, num_chunks, hidden_dim = chunk_reprs.shape
         
@@ -448,6 +683,12 @@ class InterChunkAttention:
         
         # Apply softmax
         attention_weights = self._apply_softmax(attention_scores)
+        
+        # Preserve attention weights if configured
+        if self.config.preserve_attention_weights:
+            self.weight_preservation.preserve_attention_weights(
+                attention_weights, f"{context_id}_inter_chunk"
+            )
         
         # Apply dropout
         if self.attention_dropout > 0 and self.training:
@@ -541,7 +782,8 @@ class InterChunkAttention:
             'avg_inter_time': np.mean(self.inter_times) if self.inter_times else 0,
             'total_inter_calls': len(self.inter_times),
             'hidden_dim': self.hidden_dim,
-            'num_heads': self.num_heads
+            'num_heads': self.num_heads,
+            'weight_preservation_stats': self.weight_preservation.get_preservation_stats()
         }
 
 
@@ -716,6 +958,208 @@ def _get_memory_usage() -> float:
         return 0.0
 
 
+# Advanced attention utilities
+def create_attention_mask(seq_len: int, 
+                         causal: bool = True,
+                         padding_mask: Optional[np.ndarray] = None) -> np.ndarray:
+    """Create attention mask for the given sequence length."""
+    if causal:
+        # Create causal mask (lower triangular)
+        mask = np.triu(np.ones((seq_len, seq_len)), k=1)
+        mask = mask * -1e9  # Large negative value for masked positions
+    else:
+        mask = np.zeros((seq_len, seq_len))
+    
+    # Apply padding mask if provided
+    if padding_mask is not None:
+        mask = mask + padding_mask
+    
+    return mask
+
+
+def apply_attention_compression(attention_weights: np.ndarray,
+                              compression_ratio: float = 0.5) -> np.ndarray:
+    """Apply compression to attention weights to reduce memory usage."""
+    # Simple threshold-based compression
+    threshold = np.percentile(attention_weights, (1 - compression_ratio) * 100)
+    compressed_weights = np.where(attention_weights >= threshold, attention_weights, 0)
+    
+    return compressed_weights
+
+
+def compute_attention_similarity(weights1: np.ndarray, 
+                               weights2: np.ndarray) -> float:
+    """Compute similarity between two attention weight matrices."""
+    # Flatten and normalize
+    flat1 = weights1.flatten()
+    flat2 = weights2.flatten()
+    
+    # Normalize
+    norm1 = np.linalg.norm(flat1)
+    norm2 = np.linalg.norm(flat2)
+    
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+    
+    # Cosine similarity
+    similarity = np.dot(flat1, flat2) / (norm1 * norm2)
+    return similarity
+
+
+def optimize_attention_memory(attention_weights: np.ndarray,
+                            target_memory_mb: float = 100.0) -> np.ndarray:
+    """Optimize attention weights for memory usage."""
+    current_memory = attention_weights.nbytes / 1024 / 1024  # MB
+    
+    if current_memory <= target_memory_mb:
+        return attention_weights
+    
+    # Calculate compression ratio needed
+    compression_ratio = target_memory_mb / current_memory
+    compression_ratio = max(0.1, min(0.9, compression_ratio))  # Keep between 10% and 90%
+    
+    return apply_attention_compression(attention_weights, compression_ratio)
+
+
+def validate_attention_weights(attention_weights: np.ndarray) -> Dict[str, Any]:
+    """Validate attention weights and return statistics."""
+    stats = {
+        'shape': attention_weights.shape,
+        'dtype': str(attention_weights.dtype),
+        'min_value': float(np.min(attention_weights)),
+        'max_value': float(np.max(attention_weights)),
+        'mean_value': float(np.mean(attention_weights)),
+        'std_value': float(np.std(attention_weights)),
+        'memory_mb': attention_weights.nbytes / 1024 / 1024,
+        'is_valid': True,
+        'issues': []
+    }
+    
+    # Check for NaN values
+    if np.any(np.isnan(attention_weights)):
+        stats['is_valid'] = False
+        stats['issues'].append('Contains NaN values')
+    
+    # Check for infinite values
+    if np.any(np.isinf(attention_weights)):
+        stats['is_valid'] = False
+        stats['issues'].append('Contains infinite values')
+    
+    # Check for negative values (should be non-negative for attention weights)
+    if np.any(attention_weights < 0):
+        stats['issues'].append('Contains negative values')
+    
+    # Check if weights sum to 1 (approximately)
+    weight_sums = np.sum(attention_weights, axis=-1)
+    if not np.allclose(weight_sums, 1.0, atol=1e-6):
+        stats['issues'].append('Weights do not sum to 1')
+    
+    return stats
+
+
+def create_attention_visualization(attention_weights: np.ndarray,
+                                 save_path: Optional[str] = None) -> Dict[str, Any]:
+    """Create visualization data for attention weights."""
+    try:
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        
+        # Create heatmap
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(attention_weights[0, 0], cmap='viridis', cbar=True)
+        plt.title('Attention Weights Heatmap')
+        plt.xlabel('Key Position')
+        plt.ylabel('Query Position')
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+        
+        # Return visualization data
+        return {
+            'heatmap_data': attention_weights[0, 0].tolist(),
+            'attention_pattern': np.mean(attention_weights, axis=(0, 1)).tolist(),
+            'head_importance': np.mean(attention_weights, axis=(2, 3)).tolist(),
+            'position_importance': np.mean(attention_weights, axis=(0, 1, 2)).tolist()
+        }
+    except ImportError:
+        logger.warning("Matplotlib/Seaborn not available for visualization")
+        return {
+            'heatmap_data': attention_weights[0, 0].tolist(),
+            'attention_pattern': np.mean(attention_weights, axis=(0, 1)).tolist(),
+            'head_importance': np.mean(attention_weights, axis=(2, 3)).tolist(),
+            'position_importance': np.mean(attention_weights, axis=(0, 1, 2)).tolist()
+        }
+
+
+def analyze_attention_patterns(attention_weights: np.ndarray) -> Dict[str, Any]:
+    """Analyze attention patterns and return insights."""
+    batch_size, num_heads, seq_len, _ = attention_weights.shape
+    
+    # Calculate various attention statistics
+    analysis = {
+        'batch_size': batch_size,
+        'num_heads': num_heads,
+        'sequence_length': seq_len,
+        'attention_entropy': [],
+        'attention_concentration': [],
+        'head_specialization': [],
+        'position_preferences': []
+    }
+    
+    # Calculate entropy for each attention distribution
+    for b in range(batch_size):
+        for h in range(num_heads):
+            for pos in range(seq_len):
+                weights = attention_weights[b, h, pos, :]
+                # Add small epsilon to avoid log(0)
+                weights = weights + 1e-10
+                weights = weights / np.sum(weights)
+                entropy = -np.sum(weights * np.log(weights))
+                analysis['attention_entropy'].append(entropy)
+    
+    # Calculate attention concentration (inverse of entropy)
+    analysis['attention_concentration'] = [1.0 / (e + 1e-10) for e in analysis['attention_entropy']]
+    
+    # Calculate head specialization (variance across positions)
+    for h in range(num_heads):
+        head_weights = attention_weights[:, h, :, :]
+        specialization = np.var(head_weights)
+        analysis['head_specialization'].append(float(specialization))
+    
+    # Calculate position preferences
+    for pos in range(seq_len):
+        pos_weights = attention_weights[:, :, pos, :]
+        preference = np.mean(pos_weights)
+        analysis['position_preferences'].append(float(preference))
+    
+    return analysis
+
+
+def optimize_attention_for_sequence_length(attention_weights: np.ndarray,
+                                         target_seq_len: int) -> np.ndarray:
+    """Optimize attention weights for a specific sequence length."""
+    current_seq_len = attention_weights.shape[-1]
+    
+    if current_seq_len == target_seq_len:
+        return attention_weights
+    
+    if current_seq_len > target_seq_len:
+        # Truncate to target length
+        return attention_weights[:, :, :target_seq_len, :target_seq_len]
+    else:
+        # Pad to target length
+        batch_size, num_heads, seq_len, _ = attention_weights.shape
+        padded_weights = np.zeros((batch_size, num_heads, target_seq_len, target_seq_len))
+        padded_weights[:, :, :seq_len, :seq_len] = attention_weights
+        
+        # Fill padding with uniform attention
+        for i in range(seq_len, target_seq_len):
+            padded_weights[:, :, i, :] = 1.0 / target_seq_len
+        
+        return padded_weights
+
+
 # Export main classes
 __all__ = [
     "DualChunkAttention",
@@ -724,6 +1168,15 @@ __all__ = [
     "IntraChunkAttention",
     "InterChunkAttention",
     "AttentionCache",
+    "AttentionWeightPreservation",
     "create_dual_chunk_attention",
-    "benchmark_attention"
+    "benchmark_attention",
+    "create_attention_mask",
+    "apply_attention_compression",
+    "compute_attention_similarity",
+    "optimize_attention_memory",
+    "validate_attention_weights",
+    "create_attention_visualization",
+    "analyze_attention_patterns",
+    "optimize_attention_for_sequence_length"
 ] 

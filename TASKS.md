@@ -55,10 +55,10 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
   - [x] Optimize for linear O(n) complexity
   - [x] Add CPU-specific optimizations
 
-- [ ] **Attention Mechanisms** (`layers/attention.py` - ~987 lines)
-  - [ ] Implement dual-chunk attention system
-  - [ ] Add intra-chunk and inter-chunk attention
-  - [ ] Create attention weight preservation
+- [x] **Attention Mechanisms** (`layers/attention.py` - ~1,110 lines)
+  - [x] Implement dual-chunk attention system
+  - [x] Add intra-chunk and inter-chunk attention
+  - [x] Create attention weight preservation
 
 - [ ] **Integration Testing**
   - [ ] Test tokenizer → memory → engine pipeline
