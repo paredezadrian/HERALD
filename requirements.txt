@@ -1,0 +1,29 @@
+# HERALD v1.0 Core Dependencies
+# CPU-optimized AI architecture for local deployment
+
+# Core numerical computing
+numpy>=1.24.0
+numba>=0.58.0
+
+# Web API framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Data validation and serialization
+pydantic>=2.0.0
+
+# Compression and file handling
+lz4>=4.0.0
+pyyaml>=6.0.0
+
+# Testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Optional: Performance monitoring
+# prometheus-client>=0.17.0
+
+# Optional: Development tools
+# black>=23.0.0
+# flake8>=6.0.0
+# mypy>=1.0.0 

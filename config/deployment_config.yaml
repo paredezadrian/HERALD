@@ -1,0 +1,69 @@
+# HERALD v1.0 Deployment Configuration
+# Production deployment settings
+
+# Docker Configuration
+docker:
+  base_image: "python:3.11-slim"
+  working_dir: "/app"
+  expose_port: 8000
+  volumes:
+    - "./models:/app/models"
+    - "./logs:/app/logs"
+    
+# Environment Variables
+environment:
+  HERALD_ENV: "production"
+  HERALD_LOG_LEVEL: "INFO"
+  HERALD_MAX_MEMORY: "11.8"
+  HERALD_WORKERS: "1"
+  
+# Resource Limits
+resources:
+  memory_limit: "12GB"
+  cpu_limit: "4"
+  disk_space: "50GB"
+  
+# Health Checks
+health_checks:
+  endpoint: "/health"
+  interval: 30
+  timeout: 10
+  retries: 3
+  
+# Scaling Configuration
+scaling:
+  min_replicas: 1
+  max_replicas: 4
+  target_cpu_utilization: 70
+  target_memory_utilization: 80
+  
+# Backup Configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 30
+  backup_path: "/backups"
+  
+# Monitoring
+monitoring:
+  prometheus_enabled: true
+  grafana_enabled: true
+  alerting_enabled: true
+  
+# Security
+security:
+  ssl_enabled: true
+  certificate_path: "/certs"
+  private_key_path: "/certs"
+  
+# Load Balancer
+load_balancer:
+  enabled: true
+  algorithm: "round_robin"
+  health_check_path: "/health"
+  
+# Logging
+logging:
+  centralized: true
+  log_aggregation: true
+  retention_days: 90 

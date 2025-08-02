@@ -1,0 +1,92 @@
+# HERALD v1.0 Model Configuration
+# CPU-optimized AI architecture parameters
+
+# Model Architecture
+model:
+  name: "HERALD-v1.0"
+  version: "1.0.0"
+  architecture: "hybrid_transformer_mamba"
+  
+  # Transformer Layers
+  transformer:
+    num_layers: 12
+    hidden_dim: 768
+    num_heads: 12
+    head_dim: 64
+    dropout: 0.1
+    activation: "gelu"
+    
+  # Mamba State Space Layers
+  mamba:
+    num_blocks: 6
+    state_dim: 1024
+    selective_scan: true
+    linear_complexity: true
+    
+  # Mixture of Experts
+  moe:
+    num_experts: 8
+    routing_accuracy: 0.85
+    load_balancing: true
+    
+  # Memory Configuration
+  memory:
+    active_working_memory: 8192  # tokens
+    compressed_context: 32768    # tokens (4:1 ratio)
+    chunk_size: 1024
+    chunk_overlap: 128
+    
+  # Performance Targets
+  performance:
+    max_context_length: 1000000  # 1M tokens
+    peak_ram_usage: 11.8         # GB
+    token_generation_speed: 0.8  # seconds per 100 tokens
+    model_load_time: 0.7         # seconds
+    
+  # Compression Settings
+  compression:
+    target_ratio: 8.5            # compression ratio
+    quantization: "int8"
+    sparse_matrices: true
+    lz4_compression: true
+
+# Tokenizer Configuration
+tokenizer:
+  name: "ASC_Tokenizer"
+  compression_ratio: 3.2
+  vocabulary_size: 50000
+  byte_level: true
+  symbolic_tokens: true
+  wordpiece: true
+
+# Reasoning Modules
+reasoning:
+  logic:
+    max_variables: 10000
+    cycle_detection: true
+    consistency_checking: true
+    
+  causal:
+    max_graph_size: 10000
+    intervention_analysis: true
+    confounding_detection: true
+    
+  temporal:
+    event_sequence: true
+    duration_estimation: true
+    calendar_integration: true
+
+# Hardware Optimization
+hardware:
+  cpu_optimization: true
+  avx512_support: true
+  intel_mkl: true
+  memory_mapping: true
+  simd_vectorization: true
+  
+# File Format
+file_format:
+  magic_number: "LITE"
+  header_size: 256
+  compression: "lz4"
+  quantization: "int8" 

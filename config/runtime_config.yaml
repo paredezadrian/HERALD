@@ -1,0 +1,75 @@
+# HERALD v1.0 Runtime Configuration
+# Runtime settings for deployment and performance
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  timeout: 300
+  max_requests: 1000
+  
+# API Configuration
+api:
+  title: "HERALD v1.0 API"
+  description: "CPU-optimized AI architecture for local deployment"
+  version: "1.0.0"
+  docs_url: "/docs"
+  redoc_url: "/redoc"
+  
+# Performance Settings
+performance:
+  # Memory Management
+  max_memory_usage: 11.8  # GB
+  memory_mapping: true
+  gradient_checkpointing: false  # inference only
+  
+  # Processing Settings
+  batch_size: 1
+  max_concurrent_requests: 4
+  token_generation_timeout: 30  # seconds
+  
+  # Optimization
+  use_bf16: true
+  use_int8: true
+  simd_optimization: true
+  
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "herald.log"
+  max_size: 100  # MB
+  backup_count: 5
+  
+# Security Settings
+security:
+  enable_cors: true
+  allowed_origins: ["*"]
+  rate_limiting: true
+  max_requests_per_minute: 60
+  
+# Model Loading
+model_loading:
+  auto_load: true
+  model_path: "./models/"
+  cache_models: true
+  preload_models: false
+  
+# Error Handling
+error_handling:
+  return_errors: true
+  log_errors: true
+  max_error_length: 1000
+  
+# Monitoring
+monitoring:
+  enable_metrics: true
+  metrics_port: 9090
+  health_check_interval: 30  # seconds
+  
+# Development Settings
+development:
+  debug_mode: false
+  hot_reload: false
+  verbose_logging: false 
