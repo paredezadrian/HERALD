@@ -217,15 +217,16 @@ class NeuroEngine:
             # Setup AVX-512 support
             if self.model_config.avx512_support:
                 try:
-                    # Check for AVX-512 support
-                    import cpuinfo
-                    info = cpuinfo.get_cpu_info()
-                    if 'avx512' in info['flags']:
+                    # Check for AVX-512 support using cpufeature
+                    import cpufeature
+                    cpu_features = cpufeature.CPUFeature
+                    
+                    if cpu_features.get('AVX512f', False):
                         self.logger.info("AVX-512 support detected")
                     else:
                         self.logger.warning("AVX-512 not supported, using standard instructions")
                 except ImportError:
-                    self.logger.warning("cpuinfo not available, assuming AVX-512 support")
+                    self.logger.warning("cpufeature not available, assuming AVX-512 support")
             
             # Setup SIMD vectorization
             if self.model_config.simd_vectorization:
