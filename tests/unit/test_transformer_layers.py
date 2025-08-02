@@ -310,7 +310,7 @@ class TestIntegration:
     def test_layers_integration(self):
         """Test that all layers can work together."""
         # Create configurations
-        transformer_config = TransformerConfig(num_layers=1, hidden_dim=64)
+        transformer_config = TransformerConfig(num_layers=1, hidden_dim=64, num_heads=2, head_dim=32)
         mamba_config = MambaConfig(num_blocks=1, hidden_dim=64)
         attention_config = AttentionConfig(hidden_dim=64, num_heads=2, head_dim=32)
         quantization_config = QuantizationConfig(input_precision="int8")

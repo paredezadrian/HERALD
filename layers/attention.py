@@ -352,6 +352,9 @@ class InterChunkAttention:
         
         # Performance tracking
         self.inter_times = []
+        
+        # Training mode
+        self.training = True
     
     def _init_attention_weights(self):
         """Initialize inter-chunk attention weights."""
