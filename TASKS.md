@@ -26,13 +26,13 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
   - [x] Create tokenizer unit tests
 
 ### Week 3-4: Context Memory Manager
-- [ ] **Multi-Tier Memory Architecture** (`core/memory.py` - ~1,923 lines)
-  - [ ] Implement Tier 1: Active Working Memory (8,192 tokens)
-  - [ ] Implement Tier 2: Compressed Context Summaries (32,768 tokens, 4:1 ratio)
-  - [ ] Implement Tier 3: Archived Knowledge Base with lazy loading
-  - [ ] Create chunk processing strategy (1,024-token chunks, 128-token overlap)
-  - [ ] Implement attention weight caching
-  - [ ] Add memory optimization using numpy arrays
+- [x] **Multi-Tier Memory Architecture** (`core/memory.py` - ~1,923 lines)
+  - [x] Implement Tier 1: Active Working Memory (8,192 tokens)
+  - [x] Implement Tier 2: Compressed Context Summaries (32,768 tokens, 4:1 ratio)
+  - [x] Implement Tier 3: Archived Knowledge Base with lazy loading
+  - [x] Create chunk processing strategy (1,024-token chunks, 128-token overlap)
+  - [x] Implement attention weight caching
+  - [x] Add memory optimization using numpy arrays
 
 ### Week 5-6: NeuroEngine Core Foundation
 - [ ] **Basic NeuroEngine Structure** (`core/engine.py` - ~3,456 lines)
