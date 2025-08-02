@@ -49,11 +49,11 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
   - [x] Add int8 quantization support
 
 ### Week 7-8: Mamba Integration & Testing
-- [ ] **Mamba State Space Layers** (`layers/mamba_layer.py` - ~2,123 lines)
-  - [ ] Implement selective state space mechanism
-  - [ ] Create 6 Mamba blocks with 1,024 state dimensions
-  - [ ] Optimize for linear O(n) complexity
-  - [ ] Add CPU-specific optimizations
+- [x] **Mamba State Space Layers** (`layers/mamba_layer.py` - ~2,123 lines)
+  - [x] Implement selective state space mechanism
+  - [x] Create 6 Mamba blocks with 1,024 state dimensions
+  - [x] Optimize for linear O(n) complexity
+  - [x] Add CPU-specific optimizations
 
 - [ ] **Attention Mechanisms** (`layers/attention.py` - ~987 lines)
   - [ ] Implement dual-chunk attention system
