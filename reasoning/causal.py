@@ -1061,6 +1061,7 @@ def _optimized_confounding_detection(adjacency_matrix: np.ndarray,
     for i in prange(num_variables):
         if i != treatment_idx and i != outcome_idx:
             # Check if variable is ancestor of both treatment and outcome
+            # In adjacency matrix, [i, j] = 1 means i -> j (i is ancestor of j)
             is_treatment_ancestor = adjacency_matrix[i, treatment_idx] > 0
             is_outcome_ancestor = adjacency_matrix[i, outcome_idx] > 0
             confounders[i] = is_treatment_ancestor and is_outcome_ancestor

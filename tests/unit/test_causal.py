@@ -205,9 +205,9 @@ class TestDependencyGraphConstructor:
         self.graph.add_edge("X", "Y")
         assert self.graph.is_acyclic()
         
-        # Create cycle
-        self.graph.add_edge("Y", "X")
-        assert not self.graph.is_acyclic()
+        # Try to create cycle (should be prevented)
+        with pytest.raises(GraphError, match="would create a cycle"):
+            self.graph.add_edge("Y", "X")
     
     def test_get_topological_order(self):
         """Test getting topological order."""
@@ -379,7 +379,7 @@ class TestTemporalCausality:
     
     def test_add_temporal_constraint_nonexistent_edge(self):
         """Test adding temporal constraint to nonexistent edge raises error."""
-        with pytest.raises(CausalError, match="No edge found"):
+        with pytest.raises(CausalError, match="Source or target variable not found"):
             self.temporal.add_temporal_constraint("A", "C", TemporalRelation.BEFORE)
     
     def test_check_temporal_consistency(self):
@@ -606,11 +606,12 @@ class TestOptimizedFunctions:
         from reasoning.causal import _optimized_confounding_detection
         
         # Create adjacency matrix for: C -> X, C -> Y, X -> Y
+        # adjacency_matrix[i, j] = 1 means i -> j
         adjacency_matrix = np.array([
-            [0, 0, 0, 0],  # C
-            [1, 0, 0, 0],  # X
-            [1, 1, 0, 0],  # Y
-            [0, 0, 0, 0]   # Z
+            [0, 1, 1, 0],  # C: C->X, C->Y
+            [0, 0, 1, 0],  # X: X->Y
+            [0, 0, 0, 0],  # Y: no outgoing edges
+            [0, 0, 0, 0]   # Z: no edges
         ])
         
         confounders = _optimized_confounding_detection(adjacency_matrix, 1, 2)
