@@ -12,12 +12,30 @@ __version__ = "1.0.0"
 __author__ = "HERALD Development Team"
 
 # Utility components
-from .compression import CompressionUtils
-from .metrics import MetricsCollector
-from .validation import InputValidator
+try:
+    from .compression import (
+        LZ4Compressor,
+        QuantizationUtils,
+        SparseMatrix,
+        CompressionManager,
+        compress_model_weights,
+        decompress_model_weights,
+        get_compression_stats
+    )
+except ImportError:
+    # Compression module not yet implemented
+    pass
+
+# TODO: Implement other utility modules
+# from .metrics import MetricsCollector
+# from .validation import InputValidator
 
 __all__ = [
-    "CompressionUtils",
-    "MetricsCollector",
-    "InputValidator"
+    "LZ4Compressor",
+    "QuantizationUtils", 
+    "SparseMatrix",
+    "CompressionManager",
+    "compress_model_weights",
+    "decompress_model_weights",
+    "get_compression_stats"
 ] 
