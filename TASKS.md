@@ -76,12 +76,12 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
   - [x] Create unit tests for logical reasoning
 
 ### Week 10: Causal Reasoning System
-- [ ] **Causal Reasoning** (`reasoning/causal.py` - ~1,876 lines)
-  - [ ] Build Dependency Graph Constructor (DAG)
-  - [ ] Implement Intervention Analysis for hypothetical changes
-  - [ ] Add Confounding Variable Detection
-  - [ ] Create Temporal Causality handling
-  - [ ] Test causal inference accuracy
+- [x] **Causal Reasoning** (`reasoning/causal.py` - ~1,876 lines)
+  - [x] Build Dependency Graph Constructor (DAG)
+  - [x] Implement Intervention Analysis for hypothetical changes
+  - [x] Add Confounding Variable Detection
+  - [x] Create Temporal Causality handling
+  - [x] Test causal inference accuracy
 
 ### Week 11: Temporal Processing Module
 - [ ] **Temporal Logic** (`reasoning/temporal.py` - ~1,432 lines)
