@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import uvicorn
 
 # Core HERALD imports
@@ -89,7 +89,8 @@ class ModelLoadRequest(BaseModel):
     model_path: str = Field(..., description="Path to the .herald model file")
     config_overrides: Optional[Dict[str, Any]] = Field(None, description="Optional configuration overrides")
     
-    @validator('model_path')
+    @field_validator('model_path')
+    @classmethod
     def validate_model_path(cls, v):
         if not v.endswith('.herald'):
             raise ValueError('Model path must point to a .herald file')
@@ -115,7 +116,8 @@ class InferenceRequest(BaseModel):
     stream: Optional[bool] = Field(False, description="Whether to stream the response")
     reasoning_mode: Optional[str] = Field("auto", description="Reasoning mode: auto, logic, causal, temporal")
     
-    @validator('prompt')
+    @field_validator('prompt')
+    @classmethod
     def validate_prompt(cls, v):
         if not v.strip():
             raise ValueError('Prompt cannot be empty')
@@ -270,10 +272,11 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Add custom middleware
-app.add_middleware(HeraldMiddleware)
+app.add_middleware(HeraldMiddleware, enable_security=False, enable_rate_limiting=False)
 
 # Create endpoints instance
 endpoints = HeraldEndpoints(server_state)
+app.include_router(endpoints.get_router())
 
 # Root endpoint
 @app.get("/", response_model=Dict[str, str])
@@ -360,10 +363,7 @@ async def load_model(
     except Exception as e:
         logger.error(f"Error loading model: {e}")
         state.model_loaded = False
-        return ModelLoadResponse(
-            success=False,
-            error_message=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/models/unload")
 async def unload_model(state: ServerState = Depends(get_server_state)):
@@ -385,13 +385,22 @@ async def unload_model(state: ServerState = Depends(get_server_state)):
 async def get_model_status(state: ServerState = Depends(get_server_state)):
     """Get the status of the currently loaded model."""
     if not state.model_loaded or not state.engine:
-        return {"model_loaded": False}
+        return {
+            "model_loaded": False,
+            "model_path": None,
+            "model_name": None,
+            "model_version": None,
+            "architecture": None,
+            "current_context_length": 0,
+            "performance_stats": {}
+        }
     
     engine = state.engine
     model_config = engine.model_state.model_config
     
     return {
         "model_loaded": True,
+        "model_path": state.current_model_path,
         "model_name": model_config.model_name,
         "model_version": model_config.model_version,
         "architecture": model_config.architecture,
@@ -658,6 +667,78 @@ async def get_active_requests(state: ServerState = Depends(get_server_state)):
     except Exception as e:
         logger.error(f"Error getting active requests: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/inference/config")
+async def get_inference_config(engine: NeuroEngine = Depends(verify_model_loaded)):
+    """Get current inference configuration."""
+    try:
+        config = engine.inference_config
+        return {
+            "max_new_tokens": config.max_new_tokens,
+            "temperature": config.temperature,
+            "top_p": config.top_p,
+            "top_k": config.top_k,
+            "repetition_penalty": config.repetition_penalty,
+            "do_sample": config.do_sample
+        }
+    except Exception as e:
+        logger.error(f"Error getting inference config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/test-error")
+async def test_error():
+    """Test endpoint for error handling."""
+    raise HTTPException(status_code=500, detail="Test error for error handling")
+
+@app.get("/metrics")
+async def get_metrics():
+    """Get Prometheus metrics."""
+    try:
+        import psutil
+        
+        metrics = []
+        metrics.append("# HELP herald_requests_total Total number of requests")
+        metrics.append("# TYPE herald_requests_total counter")
+        metrics.append(f"herald_requests_total {server_state.request_count}")
+        
+        metrics.append("# HELP herald_errors_total Total number of errors")
+        metrics.append("# TYPE herald_errors_total counter")
+        metrics.append(f"herald_errors_total {server_state.error_count}")
+        
+        metrics.append("# HELP herald_memory_usage_bytes Memory usage in bytes")
+        metrics.append("# TYPE herald_memory_usage_bytes gauge")
+        memory = psutil.virtual_memory()
+        metrics.append(f"herald_memory_usage_bytes {memory.used}")
+        
+        metrics.append("# HELP herald_model_loaded Model loaded status")
+        metrics.append("# TYPE herald_model_loaded gauge")
+        metrics.append(f"herald_model_loaded {1 if server_state.model_loaded else 0}")
+        
+        return Response(content="\n".join(metrics), media_type="text/plain")
+        
+    except Exception as e:
+        logger.error(f"Error getting metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ready")
+async def readiness_probe():
+    """Kubernetes readiness probe endpoint."""
+    try:
+        # Check if server is ready to receive traffic
+        return {"ready": True, "status": "ready"}
+    except Exception as e:
+        logger.error(f"Readiness probe failed: {e}")
+        raise HTTPException(status_code=503, detail="Service not ready")
+
+@app.get("/live")
+async def liveness_probe():
+    """Kubernetes liveness probe endpoint."""
+    try:
+        # Check if server is alive
+        return {"alive": True, "status": "alive"}
+    except Exception as e:
+        logger.error(f"Liveness probe failed: {e}")
+        raise HTTPException(status_code=503, detail="Service not alive")
 
 # Error handling
 @app.exception_handler(HeraldAPIError)

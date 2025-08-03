@@ -24,7 +24,7 @@ import threading
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import uvicorn
 
 # Core HERALD imports
@@ -47,7 +47,8 @@ class TokenizeRequest(BaseModel):
     text: str = Field(..., description="Text to tokenize", min_length=1, max_length=100000)
     include_metadata: Optional[bool] = Field(False, description="Include token metadata")
     
-    @validator('text')
+    @field_validator('text')
+    @classmethod
     def validate_text(cls, v):
         if not v.strip():
             raise ValueError('Text cannot be empty')
@@ -68,7 +69,8 @@ class ReasoningRequest(BaseModel):
     context: Optional[str] = Field(None, description="Additional context")
     max_steps: Optional[int] = Field(10, description="Maximum reasoning steps", ge=1, le=100)
     
-    @validator('reasoning_type')
+    @field_validator('reasoning_type')
+    @classmethod
     def validate_reasoning_type(cls, v):
         valid_types = ['logic', 'causal', 'temporal', 'auto']
         if v not in valid_types:
@@ -87,7 +89,8 @@ class ModelConfigRequest(BaseModel):
     """Model configuration request model."""
     config_updates: Dict[str, Any] = Field(..., description="Configuration updates to apply")
     
-    @validator('config_updates')
+    @field_validator('config_updates')
+    @classmethod
     def validate_config_updates(cls, v):
         valid_keys = [
             'temperature', 'top_p', 'top_k', 'repetition_penalty',
