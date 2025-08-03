@@ -14,13 +14,13 @@ __author__ = "HERALD Development Team"
 
 # Reasoning components
 from .logic import LogicEngine
-# from .causal import CausalReasoning  # TODO: Implement in Week 10
-# from .temporal import TemporalLogic  # TODO: Implement in Week 11
+from .causal import CausalReasoningEngine
+from .temporal import TemporalLogicEngine
 # from .router import MoERouter  # TODO: Implement in Week 12
 
 __all__ = [
     "LogicEngine",
-    # "CausalReasoning",  # TODO: Implement in Week 10
-    # "TemporalLogic",  # TODO: Implement in Week 11
+    "CausalReasoningEngine",
+    "TemporalLogicEngine",
     # "MoERouter"  # TODO: Implement in Week 12
 ] 
