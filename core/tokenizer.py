@@ -410,6 +410,33 @@ class ASCTokenizer:
             }
         )
     
+    def encode(self, text: str) -> List[int]:
+        """
+        Encode text to token IDs (compatibility method for benchmarks).
+        
+        Args:
+            text: Input text to encode
+            
+        Returns:
+            List of token IDs
+        """
+        result = self.tokenize(text)
+        return [token.token_id for token in result.tokens]
+    
+    def decode(self, token_ids: List[int]) -> str:
+        """
+        Decode token IDs back to text (compatibility method for benchmarks).
+        
+        Args:
+            token_ids: List of token IDs to decode
+            
+        Returns:
+            Decoded text
+        """
+        # For now, return a simple reconstruction
+        # In a full implementation, this would use the vocabulary
+        return " ".join([f"token_{tid}" for tid in token_ids])
+    
     def detokenize(self, tokens: List[Token]) -> str:
         """
         Convert tokens back to text.

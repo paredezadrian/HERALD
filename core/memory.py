@@ -720,6 +720,108 @@ class MultiTierMemoryManager:
                 "enable_compression": self.config.enable_compression
             }
         }
+    
+    def add_to_active_memory(self, data: Union[str, np.ndarray, List[int]]) -> str:
+        """Add data to active memory (Tier 1)."""
+        # Convert data to tokens if it's a string
+        if isinstance(data, str):
+            # Simple tokenization - convert to character codes
+            tokens = np.array([ord(c) for c in data], dtype=np.int32)
+        elif isinstance(data, list):
+            tokens = np.array(data, dtype=np.int32)
+        elif isinstance(data, np.ndarray):
+            tokens = data
+        else:
+            raise ValueError(f"Unsupported data type: {type(data)}")
+        
+        # Add to tier 1 and get context ID
+        context_id = self.add_context(tokens)
+        return context_id
+    
+    def compress_memory(self) -> Dict[str, Any]:
+        """Compress memory by moving data from tier 1 to tier 2."""
+        compression_stats = {
+            "chunks_compressed": 0,
+            "bytes_saved": 0,
+            "compression_ratio": 1.0
+        }
+        
+        # Find chunks in tier 1 that can be compressed
+        chunks_to_compress = []
+        for chunk in self.tier1.chunks:
+            if chunk.access_count < 2:  # Low access count
+                chunks_to_compress.append(chunk)
+        
+        # Compress chunks
+        for chunk in chunks_to_compress[:10]:  # Limit to 10 chunks
+            compressed = self.tier2.compress_chunk(chunk)
+            self.tier2.add_summary(compressed)
+            
+            # Remove from tier 1
+            if chunk in self.tier1.chunks:
+                self.tier1.chunks.remove(chunk)
+                self.tier1.total_tokens = max(0, self.tier1.total_tokens - len(chunk.tokens))
+            
+            compression_stats["chunks_compressed"] += 1
+            compression_stats["bytes_saved"] += len(chunk.tokens) * 4  # Assuming 4 bytes per token
+        
+        if compression_stats["chunks_compressed"] > 0:
+            compression_stats["compression_ratio"] = self.config.tier2_compression_ratio
+        
+        self.stats["compression_operations"] += 1
+        return compression_stats
+    
+    def get_memory_usage(self) -> Dict[str, float]:
+        """Get current memory usage in MB."""
+        tier1_stats = self.tier1.get_memory_stats()
+        tier2_stats = self.tier2.get_memory_stats()
+        tier3_stats = self.tier3.get_memory_stats()
+        
+        # Estimate memory usage (rough calculation)
+        tier1_mb = (tier1_stats["total_tokens"] * 4) / (1024 * 1024)  # 4 bytes per token
+        tier2_mb = (tier2_stats["summary_count"] * tier2_stats["capacity"] * 4) / (1024 * 1024)
+        tier3_mb = (tier3_stats["cached_count"] * 1024 * 4) / (1024 * 1024)  # Estimate
+        
+        return {
+            "tier1_mb": tier1_mb,
+            "tier2_mb": tier2_mb,
+            "tier3_mb": tier3_mb,
+            "total_mb": tier1_mb + tier2_mb + tier3_mb
+        }
+    
+    def clear_active_memory(self) -> int:
+        """Clear all data from active memory (Tier 1)."""
+        chunks_cleared = len(self.tier1.chunks)
+        self.tier1.chunks.clear()
+        self.tier1.total_tokens = 0
+        self.tier1.current_position = 0
+        self.tier1.access_patterns.clear()
+        return chunks_cleared
+    
+    def get_memory_leak_stats(self) -> Dict[str, Any]:
+        """Get memory leak detection statistics."""
+        tier1_stats = self.tier1.get_memory_stats()
+        tier2_stats = self.tier2.get_memory_stats()
+        
+        # Calculate potential memory leaks
+        tier1_utilization = tier1_stats["utilization"]
+        tier2_utilization = tier2_stats["utilization"]
+        
+        # Memory leak indicators
+        high_utilization = tier1_utilization > 0.9 or tier2_utilization > 0.8
+        growing_chunks = len(self.tier1.chunks) > 100  # Arbitrary threshold
+        
+        return {
+            "tier1_utilization": tier1_utilization,
+            "tier2_utilization": tier2_utilization,
+            "total_chunks": len(self.tier1.chunks),
+            "potential_leak": high_utilization or growing_chunks,
+            "leak_indicators": {
+                "high_utilization": high_utilization,
+                "growing_chunks": growing_chunks,
+                "access_patterns": len(self.tier1.access_patterns)
+            }
+        }
 
 
 # Factory function for easy instantiation

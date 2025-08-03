@@ -244,13 +244,14 @@ class ThroughputBenchmarks:
             router = MoERouter()
             
             # Test queries for different reasoning types
-            test_queries = [
+            base_queries = [
                 "If A and B, then C",
                 "What causes the temperature to rise?",
                 "What happened before the meeting?",
                 "∀x (P(x) → Q(x))",
                 "The intervention led to the outcome"
-            ] * (num_queries // len(test_queries) + 1)
+            ]
+            test_queries = base_queries * (num_queries // len(base_queries) + 1)
             
             latencies = []
             
@@ -285,7 +286,7 @@ class ThroughputBenchmarks:
                 peak_memory=memory.used / (1024 * 1024),  # MB
                 cpu_usage=cpu_percent,
                 details={
-                    'query_types': len(set(test_queries)),
+                    'query_types': len(set(base_queries)),
                     'throughput_stats': throughput_stats,
                     'latency_stats': {
                         'min': np.min(latencies) if latencies else 0,
