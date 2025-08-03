@@ -39,8 +39,8 @@ from core.tokenizer import ASCTokenizer
 from core.memory import MultiTierMemoryManager
 from reasoning.router import MoERouter
 from reasoning.logic import LogicEngine
-from reasoning.causal import CausalEngine
-from reasoning.temporal import TemporalEngine
+from reasoning.causal import CausalReasoningEngine as CausalEngine
+from reasoning.temporal import TemporalLogicEngine as TemporalEngine
 
 # Import API components
 from .endpoints import HeraldEndpoints
