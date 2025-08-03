@@ -92,12 +92,12 @@ This document outlines the complete implementation roadmap for HERALD (Hybrid Ef
   - [x] Test temporal reasoning capabilities
 
 ### Week 12: MoE Routing Implementation
-- [ ] **Mixture-of-Experts Router** (`reasoning/router.py` - ~789 lines)
-  - [ ] Implement Complexity Scoring for queries
-  - [ ] Create Module Selection logic
-  - [ ] Add Parallel Processing capabilities
-  - [ ] Implement Result Synthesis from multiple modules
-  - [ ] Test routing accuracy (target: 85%)
+- [x] **Mixture-of-Experts Router** (`reasoning/router.py` - ~789 lines)
+  - [x] Implement Complexity Scoring for queries
+  - [x] Create Module Selection logic
+  - [x] Add Parallel Processing capabilities
+  - [x] Implement Result Synthesis from multiple modules
+  - [x] Test routing accuracy (target: 85%)
 
 ## Phase 3: Production Readiness (Weeks 13-16)
 

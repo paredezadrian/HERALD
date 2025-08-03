@@ -16,11 +16,11 @@ __author__ = "HERALD Development Team"
 from .logic import LogicEngine
 from .causal import CausalReasoningEngine
 from .temporal import TemporalLogicEngine
-# from .router import MoERouter  # TODO: Implement in Week 12
+from .router import MoERouter
 
 __all__ = [
     "LogicEngine",
     "CausalReasoningEngine",
     "TemporalLogicEngine",
-    # "MoERouter"  # TODO: Implement in Week 12
+    "MoERouter"
 ] 
