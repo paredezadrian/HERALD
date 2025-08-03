@@ -552,12 +552,25 @@ class TestErrorHandling:
         """Test timeout handling in SAT solving."""
         solver = BooleanSatisfiabilitySolver()
         
-        # Create a complex formula that might timeout
+        # Create a complex formula that will timeout
         formula = Formula()
-        for i in range(100):  # Many variables
+        # Add many clauses with conflicting assignments to make it harder
+        for i in range(50):
+            clause1 = Clause()
+            clause1 = clause1.add_literal(Literal(f"x{i}", False))
+            clause1 = clause1.add_literal(Literal(f"y{i}", True))
+            formula.add_clause(clause1)
+            
+            clause2 = Clause()
+            clause2 = clause2.add_literal(Literal(f"x{i}", True))
+            clause2 = clause2.add_literal(Literal(f"y{i}", False))
+            formula.add_clause(clause2)
+        
+        # Add some unsatisfiable constraints to make it harder
+        for i in range(10):
             clause = Clause()
-            clause = clause.add_literal(Literal(f"x{i}", False))
-            clause = clause.add_literal(Literal(f"y{i}", True))
+            clause = clause.add_literal(Literal(f"z{i}", False))
+            clause = clause.add_literal(Literal(f"z{i}", True))
             formula.add_clause(clause)
         
         # Try to solve with very short timeout

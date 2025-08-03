@@ -387,6 +387,9 @@ class TestMoERouter:
     
     def test_performance_stats(self):
         """Test performance statistics."""
+        # Reset stats to start fresh
+        self.router.reset_stats()
+        
         # Process a few queries first
         queries = [
             "If A and B, then C",
@@ -395,7 +398,7 @@ class TestMoERouter:
         ]
         
         for query in queries:
-            self.router.route_query(query)
+            self.router.process_query(query)
         
         stats = self.router.get_performance_stats()
         

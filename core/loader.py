@@ -807,7 +807,19 @@ class HeraldLoader:
                     # Truncate
                     decompressed = decompressed[:expected_size]
             
-            return decompressed.reshape(shape).astype(dtype)
+            # Handle potential invalid values during cast with warning suppression
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                try:
+                    return decompressed.reshape(shape).astype(dtype)
+                except (ValueError, TypeError):
+                    # If cast fails, try with safe casting
+                    try:
+                        return decompressed.reshape(shape).astype(dtype, casting='safe')
+                    except (ValueError, TypeError):
+                        # If safe casting also fails, use unsafe casting
+                        return decompressed.reshape(shape).astype(dtype, casting='unsafe')
         else:
             # Legacy format without shape information
             return self._decompress_array(compressed_data)

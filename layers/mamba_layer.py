@@ -509,6 +509,7 @@ class MambaBlock:
         self.use_gradient_checkpointing = config.gradient_checkpointing
         self.use_quantization = config.use_quantization
         self.use_parallel_state_update = config.use_parallel_state_update
+        self.use_fused_operations = config.use_fused_operations
         
         # Memory optimization
         self.block_cache = {}

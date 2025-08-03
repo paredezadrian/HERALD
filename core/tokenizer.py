@@ -566,12 +566,16 @@ def benchmark_tokenizer(tokenizer: ASCTokenizer, test_texts: List[str]) -> Dict:
         'tier_distribution': {1: 0, 2: 0, 3: 0}
     }
     
-    start_time = time.time()
+    start_time = time.perf_counter()
     
     for text in test_texts:
-        text_start = time.time()
+        text_start = time.perf_counter()
         result = tokenizer.tokenize(text)
-        text_time = time.time() - text_start
+        text_time = time.perf_counter() - text_start
+        
+        # Ensure minimum measurable time
+        if text_time < 0.0001:
+            text_time = 0.0001
         
         results['total_tokens'] += len(result.tokens)
         results['processing_times'].append(text_time)
@@ -580,7 +584,7 @@ def benchmark_tokenizer(tokenizer: ASCTokenizer, test_texts: List[str]) -> Dict:
         for tier, count in result.tier_distribution.items():
             results['tier_distribution'][tier] += count
     
-    total_time = time.time() - start_time
+    total_time = time.perf_counter() - start_time
     
     results['average_compression_ratio'] /= len(test_texts)
     results['total_time'] = total_time

@@ -1274,7 +1274,7 @@ class LogicEngine:
 
 
 # Performance optimization functions using Numba
-@jit(nopython=True, parallel=True)
+@jit(nopython=True)
 def _optimized_clause_evaluation(clause_literals: np.ndarray, 
                                 assignment: np.ndarray) -> bool:
     """
@@ -1287,7 +1287,7 @@ def _optimized_clause_evaluation(clause_literals: np.ndarray,
     Returns:
         True if clause is satisfied, False otherwise
     """
-    for i in prange(clause_literals.shape[0]):
+    for i in range(clause_literals.shape[0]):
         var_idx = clause_literals[i, 0]
         negated = clause_literals[i, 1]
         

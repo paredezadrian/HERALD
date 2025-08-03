@@ -12,12 +12,13 @@ __version__ = "1.0.0"
 __author__ = "HERALD Development Team"
 
 # API components
-from .server import HeraldServer
+from .server import app, run_server
 from .endpoints import HeraldEndpoints
 from .middleware import HeraldMiddleware
 
 __all__ = [
-    "HeraldServer",
+    "app",
+    "run_server",
     "HeraldEndpoints", 
     "HeraldMiddleware"
 ] 
