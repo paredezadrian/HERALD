@@ -154,21 +154,24 @@ class HeraldEndpoints:
                 
                 tokenize_time = time.time() - start_time
                 
-                # Prepare response
+                # Prepare response using actual TokenizationResult fields
+                token_ids = [t.token_id for t in result.tokens]
+                token_texts = [t.text for t in result.tokens]
+
                 response_data = {
-                    "tokens": result.token_ids,
-                    "token_texts": result.token_texts,
-                    "token_count": len(result.token_ids),
-                    "compression_ratio": result.compression_ratio
+                    "tokens": token_ids,
+                    "token_texts": token_texts,
+                    "token_count": len(token_ids),
+                    "compression_ratio": result.compression_ratio,
                 }
-                
+
                 if request.include_metadata:
                     response_data["metadata"] = {
                         "tokenization_time": tokenize_time,
                         "compression_ratio": result.compression_ratio,
-                        "tier_usage": result.tier_usage if hasattr(result, 'tier_usage') else None
+                        "tier_usage": result.tier_distribution,
                     }
-                
+
                 return TokenizeResponse(**response_data)
                 
             except Exception as e:
@@ -189,10 +192,11 @@ class HeraldEndpoints:
                 if request.reasoning_type == "auto":
                     # Use MoE router to determine best module
                     router = MoERouter()
-                    module_type = router.route_query(request.query)
+                    module_decision = router.route_query(request.query)
+                    module_type = module_decision.primary_module.value
                 else:
                     module_type = request.reasoning_type
-                
+
                 # Initialize appropriate reasoning engine
                 if module_type == "logic":
                     reasoning_engine = LogicEngine()
