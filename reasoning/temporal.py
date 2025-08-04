@@ -362,7 +362,9 @@ class EventSequenceModeling:
         # Count subsequences
         subsequence_counts = defaultdict(int)
         for sequence in self.sequences:
-            for length in range(2, min(len(sequence) + 1, 6)):  # Look for patterns of length 2-5
+            # Look for patterns of length 2-5 inclusive
+            max_len = min(len(sequence), 5)
+            for length in range(2, max_len + 1):
                 for i in range(len(sequence) - length + 1):
                     subsequence = tuple(sequence[i:i+length])
                     subsequence_counts[subsequence] += 1

@@ -130,16 +130,18 @@ class Tier1ActiveMemory:
     def get_tokens(self, start: int, end: int) -> np.ndarray:
         """Retrieve tokens from active memory."""
         with self.lock:
-            if start >= self.total_tokens or end > self.total_tokens:
-                raise ValueError(f"Invalid token range: {start}-{end}, total: {self.total_tokens}")
-            
-            # Simple retrieval from stored chunks
+            if start < 0 or end < 0 or start >= end or end > self.total_tokens:
+                raise ValueError(
+                    f"Invalid token range: {start}-{end}, total: {self.total_tokens}"
+                )
+
+            # Collect tokens until we've covered the requested end position
             result = []
             for chunk in self.chunks:
-                if len(result) >= end - start:
+                if len(result) >= end:
                     break
                 result.extend(chunk.tokens)
-            
+
             # Return the requested range
             return np.array(result[start:end], dtype=np.int32)
     
